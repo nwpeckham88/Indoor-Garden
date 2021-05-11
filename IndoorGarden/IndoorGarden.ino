@@ -1,18 +1,18 @@
 // Includes
 //#include <EEPROM.h>
-#include "GravityTDS.h"
-#include <OneWire.h>
+#include <Arduino.h>
+#include <OneWireNg.h>
 #include <DallasTemperature.h>
 #include "RunningAverage.h"
 #include "Ticker.h"
 
 // Pin assignments
 #define ONE_WIRE_BUS 7
-#define TDS_SENSOR_PIN A1
+#define TDS_SENSOR_PIN 32
 #define TDS_SENSOR_POWER_PIN 6
-#define WATER_LEVEL_POWER_PIN   4
-#define WATER_LEVEL_SIGNAL_PIN  A2
-#define PH_SENSOR_PIN A0
+#define WATER_LEVEL_POWER_PIN 4
+#define WATER_LEVEL_SIGNAL_PIN 35
+#define PH_SENSOR_PIN 34
 #define PH_UP_RELAY_PIN 5
 #define PH_DOWN_RELAY_PIN 8
 
@@ -25,7 +25,6 @@ float ph_calibration_value = 19.1;
 
 // Sensor objects
 OneWire oneWire(ONE_WIRE_BUS);
-GravityTDS gravityTds;
 DallasTemperature sensors(&oneWire);
 
 // Current sensor values
@@ -58,19 +57,14 @@ void phDown();
 int phWait = 0;
 int phWaitCycles = 40;
 
-void setup()
-{
+void setup() {
   Serial.begin(115200);
   sensors.begin();
-  gravityTds.setPin(TDS_SENSOR_PIN);
-  gravityTds.setAref(5.0);  //reference voltage on ADC, default 5.0V on Arduino UNO
-  gravityTds.setAdcRange(1024);  //1024 for 10bit ADC;4096 for 12bit ADC
-  gravityTds.begin();  //initialization
 
-  pinMode(WATER_LEVEL_POWER_PIN, OUTPUT);   // configure D7 pin as an OUTPUT
-  pinMode(TDS_SENSOR_POWER_PIN, OUTPUT);   // configure D6 pin as an OUTPUT
-  digitalWrite(WATER_LEVEL_POWER_PIN, LOW); // turn the sensor OFF
-  digitalWrite(TDS_SENSOR_POWER_PIN, LOW); // turn the sensor OFF
+  pinMode(WATER_LEVEL_POWER_PIN, OUTPUT);    // configure D7 pin as an OUTPUT
+  pinMode(TDS_SENSOR_POWER_PIN, OUTPUT);     // configure D6 pin as an OUTPUT
+  digitalWrite(WATER_LEVEL_POWER_PIN, LOW);  // turn the sensor OFF
+  digitalWrite(TDS_SENSOR_POWER_PIN, LOW);   // turn the sensor OFF
 
   phValues.clear();
 }
@@ -81,65 +75,64 @@ void loop() {
   waterLevel = getWaterLevel();
   phValue = getpH();
   tdsValue = getTDS();
-  ecValue = (tdsValue *2.0)/1000.0;
+  ecValue = (tdsValue * 2.0) / 1000.0;
 
   // Control logic
-  if (waterLevel < waterLevelMin) { // If we are low on water, don't adjust anything. We will be adding or changing water soon (hopefully)
+  if (waterLevel < waterLevelMin) {  // If we are low on water, don't adjust anything. We will be adding or changing water soon (hopefully)
     Alert("Water Level OOR");
   } else {
     if (phWait > 0) {
       phWait--;
     } else {
-      if ((targetpH - phMargin) > phValue) { // pH out of range (too low)
+      if ((targetpH - phMargin) > phValue) {  // pH out of range (too low)
         phUp();
         phWait = phWaitCycles;
-      } else if ((targetpH + phMargin) < phValue) { // pH out of range (too high)
+      } else if ((targetpH + phMargin) < phValue) {  // pH out of range (too high)
         phDown();
         phWait = phWaitCycles;
-      } else { // pH is good. Check TDS
+      } else {  // pH is good. Check TDS
         if (ecValue < ecMin) {
           Alert("TDS OOR");
+        }
       }
     }
   }
-}
 
-Serial.print(tdsValue, 0);
-Serial.println("ppm");
-Serial.print("EC: ");
-Serial.println(ecValue, 1);
-//  Serial.print("Temperature is: ");
-//  Serial.print(tempC);
-//  Serial.print(" (");
-//  Serial.print(tempF);
-//  Serial.println(" F)");
-Serial.print("pH: ");
-Serial.println(phValue);
-Serial.println("");
+  Serial.print(tdsValue, 0);
+  Serial.println("ppm");
+  Serial.print("EC: ");
+  Serial.println(ecValue, 1);
+  //  Serial.print("Temperature is: ");
+  //  Serial.print(tempC);
+  //  Serial.print(" (");
+  //  Serial.print(tempF);
+  //  Serial.println(" F)");
+  Serial.print("pH: ");
+  Serial.println(phValue);
+  Serial.println("");
 
-delay(1000);
+  delay(1000);
 }
 
 float getWaterLevel() {
-  digitalWrite(WATER_LEVEL_POWER_PIN, HIGH);  // turn the sensor ON
-  delay(10);                      // wait 10 milliseconds
-  int wl = analogRead(WATER_LEVEL_SIGNAL_PIN); // read the analog value from sensor
-  digitalWrite(WATER_LEVEL_POWER_PIN, LOW);   // turn the sensor OFF
+  digitalWrite(WATER_LEVEL_POWER_PIN, HIGH);    // turn the sensor ON
+  delay(10);                                    // wait 10 milliseconds
+  int wl = analogRead(WATER_LEVEL_SIGNAL_PIN);  // read the analog value from sensor
+  digitalWrite(WATER_LEVEL_POWER_PIN, LOW);     // turn the sensor OFF
   return wl;
 }
 
-float ph (float voltage) {
+float ph(float voltage) {
   return 7 + ((2.5 - voltage) / 0.18);
 }
 
 float getpH() {
-  int measurings=0;
-  for (int i = 0; i < ph_samples; i++)
-  {
+  int measurings = 0;
+  for (int i = 0; i < ph_samples; i++) {
     measurings += analogRead(PH_SENSOR_PIN);
     delay(10);
   }
-  float voltage = 5 / 1024.0 * measurings/ph_samples;
+  float voltage = 5 / 1024.0 * measurings / ph_samples;
   Serial.println(voltage);
   float ph_act = ph(voltage);
   phValues.addValue(ph_act);
@@ -155,21 +148,20 @@ float getWaterTemp(bool f = false) {
   sensors.requestTemperatures();
   float tempC = sensors.getTempCByIndex(0);
   float tempF = sensors.getTempFByIndex(0);
-  if (f) return tempF; else return tempC;
+  if (f) return tempF;
+  else
+    return tempC;
 }
 
 float getTDS() {
   digitalWrite(TDS_SENSOR_POWER_PIN, HIGH);
   delay(100);
-  float tempC = getWaterTemp(); // For DEBUG!
-  gravityTds.setTemperature(tempC);  // set the temperature and execute temperature compensation
-  gravityTds.update();  //sample and calculate
+  float tempC = getWaterTemp();      // For DEBUG!
   digitalWrite(TDS_SENSOR_POWER_PIN, LOW);
-  return gravityTds.getTdsValue();  // then get the value
-
+  return 0;  // then get the value
 }
 
-void phUp(){
+void phUp() {
   Serial.println("PH UP!");
   digitalWrite(PH_UP_RELAY_PIN, HIGH);
   delay(500);
@@ -177,7 +169,7 @@ void phUp(){
   return;
 }
 
-void phDown(){
+void phDown() {
   Serial.println("PH DOWN!");
   digitalWrite(PH_DOWN_RELAY_PIN, HIGH);
   delay(500);
