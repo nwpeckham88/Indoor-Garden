@@ -26,7 +26,6 @@ class GravityTDS
 {
 public:
     GravityTDS();
-    ~GravityTDS();
 
     void begin();  //initialization
     void update(); //read and calculate

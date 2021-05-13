@@ -1,5 +1,5 @@
 // Includes
-//#include <EEPROM.h>
+#include <EEPROM.h>
 #include <Arduino.h>
 #include <OneWireNg.h>
 #include <DallasTemperature.h>
